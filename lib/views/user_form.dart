@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:myapp/models/user.dart';
 import 'package:myapp/provider/users.dart';
-import 'package:myapp/routes/app_routes.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -15,30 +14,65 @@ class UserForm extends StatefulWidget {
   State<UserForm> createState() => _UserFormState();
 }
 
-class _UserFormState extends State<UserForm> {
+class _UserFormState extends State<UserForm>
+    with SingleTickerProviderStateMixin {
   final Map<String, String> _formData = {};
   List<String> _arquivos = [];
   DateTime? _selectedDate;
   final List<GlobalKey<FormState>> _formKeys = [
-    GlobalKey<FormState>(), // Step 0 - Procedimento
-    GlobalKey<FormState>(), // Step 1 - Data
+    GlobalKey<FormState>(), // Etapa 0 - Procedimento
+    GlobalKey<FormState>(), // Etapa 1 - Data
   ];
   int _currentStep = 0;
 
   late TextEditingController _dateController;
   late TextEditingController _observacaoController;
+  late TextEditingController _pesoController;
+  late TextEditingController _alturaController;
+
+  late AnimationController _animationController;
+  late Animation<Offset> _slideAnimation;
+  late Animation<double> _fadeAnimation;
 
   @override
   void initState() {
     super.initState();
     _dateController = TextEditingController();
     _observacaoController = TextEditingController();
+    _pesoController = TextEditingController();
+    _alturaController = TextEditingController();
+
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(1, 0),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeInOut,
+    ));
+
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeInOut,
+    ));
+
+    _animationController.forward();
   }
 
   @override
   void dispose() {
     _dateController.dispose();
     _observacaoController.dispose();
+    _pesoController.dispose();
+    _alturaController.dispose();
+    _animationController.dispose();
     super.dispose();
   }
 
@@ -63,7 +97,12 @@ class _UserFormState extends State<UserForm> {
 
   void _saveForm() {
     try {
-      _formData['observacao'] = _observacaoController.text;
+      if (_formData['procedimento'] == 'Antropometria') {
+        _formData['observacao'] =
+            'Peso: ${_pesoController.text} kg, Altura: ${_alturaController.text} cm';
+      } else {
+        _formData['observacao'] = _observacaoController.text;
+      }
       _formData['dataDoProcedimento'] = _dateController.text;
 
       Provider.of<Users>(context, listen: false).put(
@@ -77,16 +116,43 @@ class _UserFormState extends State<UserForm> {
       );
       Navigator.of(context).pop();
     } catch (e) {
-      print('Error during save: $e');
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Erro ao salvar: $e')));
     }
   }
 
+  void _nextStep() {
+    if (_currentStep < 3) {
+      if (_currentStep < _formKeys.length) {
+        final currentFormKey = _formKeys[_currentStep];
+        if (currentFormKey.currentState?.validate() ?? true) {
+          setState(() {
+            _currentStep++;
+            _animationController.forward(from: 0.0);
+          });
+        }
+      } else {
+        setState(() {
+          _currentStep++;
+          _animationController.forward(from: 0.0);
+        });
+      }
+    }
+  }
+
+  void _previousStep() {
+    if (_currentStep > 0) {
+      setState(() {
+        _currentStep--;
+        _animationController.forward(from: 0.0);
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    List<Widget> steps = [
+    final List<Widget> steps = [
       _buildProcedimentoStep(),
       _buildDataStep(),
       _buildObservacaoStep(),
@@ -95,63 +161,59 @@ class _UserFormState extends State<UserForm> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Formulário do Procedimento'),
-        backgroundColor: Color.fromARGB(255, 150, 211, 252),
+        title: const Text(
+          'Formulário do Procedimento',
+          style: TextStyle(color: Colors.blue),
+        ),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.blue),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(15.0),
-        child: steps[_currentStep],
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 300),
+        transitionBuilder: (Widget child, Animation<double> animation) {
+          return FadeTransition(
+            opacity: animation,
+            child: SlideTransition(
+              position: _slideAnimation,
+              child: child,
+            ),
+          );
+        },
+        child: Padding(
+          key: ValueKey<int>(_currentStep),
+          padding: const EdgeInsets.all(15.0),
+          child: steps[_currentStep],
+        ),
       ),
       bottomNavigationBar: BottomAppBar(
-        color: Color.fromARGB(255, 150, 211, 252),
-        shape: AutomaticNotchedShape(
-          RoundedRectangleBorder(
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(25),
-              topRight: Radius.circular(25),
-            ),
-          ),
-        ),
+        color: const Color.fromARGB(255, 150, 211, 252),
+        shape: const CircularNotchedRectangle(),
         notchMargin: 10,
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             IconButton(
-              icon: Icon(Icons.arrow_back),
-              iconSize: 40,
-              onPressed:
-                  _currentStep > 0
-                      ? () {
-                        setState(() {
-                          _currentStep--;
-                        });
-                      }
-                      : null,
+              icon: const Icon(Icons.arrow_back),
+              iconSize: 30,
+              color: Colors.blue,
+              onPressed: _currentStep > 0 ? _previousStep : null,
             ),
-            IconButton(
-              icon: Icon(
-                _currentStep < steps.length - 1
-                    ? Icons.arrow_forward
-                    : Icons.save,
-              ),
-              iconSize: 40,
-              onPressed: () {
-                if (_currentStep < steps.length - 1) {
-                  if (_currentStep < _formKeys.length) {
-                    final currentFormKey = _formKeys[_currentStep];
-                    if (currentFormKey.currentState == null ||
-                        currentFormKey.currentState!.validate()) {
-                      setState(() {
-                        _currentStep++;
-                      });
-                    }
-                  } else {
-                    setState(() {
-                      _currentStep++;
-                    });
-                  }
-                } else {
-                  // Last step, validate all forms before saving
+            if (_currentStep < steps.length - 1)
+              IconButton(
+                icon: const Icon(Icons.arrow_forward),
+                iconSize: 30,
+                color: Colors.blue,
+                onPressed: _nextStep,
+              )
+            else
+              ElevatedButton.icon(
+                icon: const Icon(Icons.save),
+                label: const Text(
+                  'SALVAR',
+                  style: TextStyle(fontSize: 16, color: Colors.blue),
+                ),
+                onPressed: () {
                   bool allValid = true;
                   for (var formKey in _formKeys) {
                     if (formKey.currentState != null &&
@@ -161,12 +223,17 @@ class _UserFormState extends State<UserForm> {
                   }
                   if (allValid) {
                     _saveForm();
-                  } else {
-                    print('Form has validation errors.');
                   }
-                }
-              },
-            ),
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                ),
+              ),
           ],
         ),
       ),
@@ -177,58 +244,58 @@ class _UserFormState extends State<UserForm> {
     return Form(
       key: _formKeys[0],
       child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Text(
-              'Para começar, escolha o tipo de entrada de saúde.',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            Text(
-              'Essa informação é importante para....',
-              style: TextStyle(fontSize: 14),
-            ),
-            FormField<String>(
-            initialValue: _formData['procedimento'],
-            validator: (value) {
-              if (value == null || value.trim().isEmpty) {
-                return 'Por favor, selecione um procedimento';
-              }
-              return null;
-            },
-            builder: (FormFieldState<String> field) {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  ...['Consulta', 'Exame', 'Antropometria'].map((option) {
-                    return RadioListTile<String>(
-                      title: Text(option),
-                      value: option,
-                      groupValue: field.value,
-                      onChanged: (value) {
-                        field.didChange(value);
-                        setState(() {
-                          _formData['procedimento'] = value!;
-                        });
-                      },
-                    );
-                  }).toList(),
-                  if (field.hasError)
-                    Padding(
-                      padding: const EdgeInsets.only(left: 16.0),
-                      child: Text(
-                        field.errorText!,
-                        style: TextStyle(color: Colors.red),
-                      ),
-                    ),
-                ],
-              );
-            },
-          ),
-              SizedBox(height: 16),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 28.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const Text(
+                'Qual o tipo de procedimento?',
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 20),
+              FormField<String>(
+                initialValue: _formData['procedimento'],
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Selecione um procedimento';
+                  }
+                  return null;
+                },
+                builder: (FormFieldState<String> field) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ...['Consulta', 'Exame', 'Antropometria'].map((option) {
+                        return RadioListTile<String>(
+                          title: Text(option),
+                          value: option,
+                          groupValue: field.value,
+                          activeColor: Colors.blue,
+                          onChanged: (value) {
+                            field.didChange(value);
+                            setState(() {
+                              _formData['procedimento'] = value!;
+                            });
+                          },
+                        );
+                      }).toList(),
+                      if (field.hasError)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 16.0),
+                          child: Text(
+                            field.errorText!,
+                            style: const TextStyle(color: Colors.red),
+                          ),
+                        ),
+                    ],
+                  );
+                },
+              ),
             ],
           ),
+        ),
       ),
     );
   }
@@ -237,165 +304,195 @@ class _UserFormState extends State<UserForm> {
     return Form(
       key: _formKeys[1],
       child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Text(
-              'Essa consulta aconteceu quando?',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            Text(
-              'Se foi hoje, pode avançar. Caso contrário selecione o a data no calendário abaixo.',
-              style: TextStyle(fontSize: 14),
-            ),
-            TextFormField(
-              controller: _dateController,
-              decoration: InputDecoration(
-                labelText: 'Data do Procedimento',
-                suffixIcon: Icon(Icons.calendar_today),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 28.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const Text(
+                'Quando aconteceu?',
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
               ),
-              readOnly: false,
-              onTap: () async {
-                DateTime? pickedDate = await showDatePicker(
-                  context: context,
-                  initialDate: _selectedDate ?? DateTime.now(),
-                  firstDate: DateTime(2000),
-                  lastDate: DateTime(2100),
-                );
+              const SizedBox(height: 20),
+              TextFormField(
+                controller: _dateController,
+                decoration: const InputDecoration(
+                  labelText: 'Data do Procedimento',
+                  suffixIcon: Icon(Icons.calendar_today),
+                  border: OutlineInputBorder(),
+                ),
+                readOnly: true,
+                onTap: () async {
+                  DateTime? pickedDate = await showDatePicker(
+                    context: context,
+                    initialDate: _selectedDate ?? DateTime.now(),
+                    firstDate: DateTime(2000),
+                    lastDate: DateTime(2100),
+                  );
 
-                if (pickedDate != null) {
-                  setState(() {
-                    _selectedDate = pickedDate;
-                    String formattedDate = DateFormat(
-                      'dd/MM/yyyy',
-                    ).format(pickedDate);
-                    _dateController.text = formattedDate;
-                  });
-                }
-              },
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'Por favor, selecione a data do procedimento';
-                }
-                return null;
-              },
-            ),
-          ],
+                  if (pickedDate != null) {
+                    setState(() {
+                      _selectedDate = pickedDate;
+                      String formattedDate = DateFormat(
+                        'dd/MM/yyyy',
+                      ).format(pickedDate);
+                      _dateController.text = formattedDate;
+                    });
+                  }
+                },
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Selecione a data';
+                  }
+                  return null;
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildObservacaoStep() {
-    return Form(
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Text(
-              'Entre agora com uma informação sobre sua consulta:',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+    if (_formData['procedimento'] == 'Antropometria') {
+      return Form(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 28.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const Text(
+                  'Informe seu peso e altura',
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 20),
+                TextFormField(
+                  controller: _pesoController,
+                  decoration: const InputDecoration(
+                    labelText: 'Peso (kg)',
+                    border: OutlineInputBorder(),
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _alturaController,
+                  decoration: const InputDecoration(
+                    labelText: 'Altura (cm)',
+                    border: OutlineInputBorder(),
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
+              ],
             ),
-            Text(
-              'Adicione detalhes de texto descrevendo o que aconteceu durante a sua consulta.',
-              style: TextStyle(fontSize: 14),
-            ),
-            TextFormField(
-              maxLines: null,
-              controller: _observacaoController,
-              decoration: InputDecoration(labelText: 'Observação'),
-              onChanged: (value) => _formData['observacao'] = value,
-            ),
-          ],
+          ),
         ),
-      ),
-    );
+      );
+    } else {
+      return Form(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 28.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const Text(
+                  'Adicione uma observação',
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 20),
+                TextFormField(
+                  maxLines: 5,
+                  controller: _observacaoController,
+                  decoration: const InputDecoration(
+                    labelText: 'Escreva aqui...',
+                    border: OutlineInputBorder(),
+                  ),
+                  onChanged: (value) => _formData['observacao'] = value,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
   }
 
   Widget _buildArquivosStep() {
     return Form(
       child: Center(
-        child: Column(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 28.0),
+          child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Text(
-                'Possui algum arquivo para guardar?',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              const Text(
+                'Anexe seus arquivos',
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
               ),
-              Text(
-                'Sua consulta gerou algum prontuário, receita, exame, etc. Você pode fazer o upload do arquivo ou tirar uma foto clicando nas opções abaixo:',
-                style: TextStyle(fontSize: 14),
-              ),
+              const SizedBox(height: 20),
               ElevatedButton.icon(
-                icon: Icon(Icons.attach_file),
-                label: Text('Selecionar Arquivos'),
+                icon: const Icon(Icons.attach_file),
+                label: const Text('Selecionar'),
                 onPressed: () async {
-                  FilePickerResult? result = await FilePicker.platform.pickFiles(
+                  FilePickerResult? result =
+                      await FilePicker.platform.pickFiles(
                     allowMultiple: true,
                   );
 
                   if (result != null) {
-                    List<String> selectedPaths =
-                        result.files
-                            .where((file) => file.path != null)
-                            .map((file) => file.path!)
-                            .toList();
+                    List<String> selectedPaths = result.files
+                        .where((file) => file.path != null)
+                        .map((file) => file.path!)
+                        .toList();
 
                     setState(() {
                       _arquivos.addAll(selectedPaths);
                     });
                   }
                 },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+                ),
               ),
               if (_arquivos.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8.0),
+                Expanded(
                   child: ListView.builder(
                     shrinkWrap: true,
-                    physics: NeverScrollableScrollPhysics(),
                     itemCount: _arquivos.length,
                     itemBuilder: (context, index) {
                       String filePath = _arquivos[index];
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4.0),
-                        child: Row(
-                          children: [
-                            GestureDetector(
-                              onTap: () {
-                                OpenFile.open(filePath);
-                              },
-                              child: Row(
-                                children: [
-                                  Icon(Icons.insert_drive_file, color: Colors.blue),
-                                  SizedBox(width: 8),
-                                  Container(
-                                    width: MediaQuery.of(context).size.width * 0.5,
-                                    child: Text(
-                                      p.basename(filePath),
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        color: Colors.blue,
-                                        decoration: TextDecoration.underline,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Spacer(),
-                            IconButton(
-                              icon: Icon(Icons.delete, color: Colors.blueAccent),
-                              onPressed: () {
-                                setState(() {
-                                  _arquivos.removeAt(index);
-                                });
-                              },
-                            ),
-                          ],
+                      return Card(
+                        margin: const EdgeInsets.symmetric(vertical: 5),
+                        child: ListTile(
+                          leading: const Icon(Icons.insert_drive_file, color: Colors.blue),
+                          title: Text(
+                            p.basename(filePath),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          onTap: () {
+                            OpenFile.open(filePath);
+                          },
+                          trailing: IconButton(
+                            icon: const Icon(Icons.delete, color: Colors.red),
+                            onPressed: () {
+                              setState(() {
+                                _arquivos.removeAt(index);
+                              });
+                            },
+                          ),
                         ),
                       );
                     },
@@ -403,6 +500,7 @@ class _UserFormState extends State<UserForm> {
                 ),
             ],
           ),
+        ),
       ),
     );
   }

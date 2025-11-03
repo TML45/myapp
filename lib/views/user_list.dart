@@ -4,8 +4,37 @@ import 'package:myapp/provider/users.dart';
 import 'package:myapp/routes/app_routes.dart';
 import 'package:provider/provider.dart';
 
-class UserList extends StatelessWidget {
+class UserList extends StatefulWidget {
   const UserList({super.key});
+
+  @override
+  State<UserList> createState() => _UserListState();
+}
+
+class _UserListState extends State<UserList>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 500),
+      vsync: this,
+    );
+    _animation = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeIn,
+    );
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -21,121 +50,95 @@ class UserList extends StatelessWidget {
         backgroundColor: Colors.blue,
         foregroundColor: Colors.white,
         shape: const CircleBorder(),
-        child: Icon(Icons.add),
+        child: const Icon(Icons.add),
       ),
       bottomNavigationBar: BottomAppBar(
-        color: Color.fromARGB(255, 150, 211, 252),
-        shape: CircularNotchedRectangle(),
-        // AutomaticNotchedShape(
-        //   RoundedRectangleBorder(
-        //     borderRadius: BorderRadius.only(
-        //       topLeft: Radius.circular(25),
-        //       topRight: Radius.circular(25),
-        //     )
-        //   ),
-        // ),
+        color: const Color.fromARGB(255, 150, 211, 252),
+        shape: const CircularNotchedRectangle(),
         notchMargin: 10,
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Row(
-              // mainAxisAlignment: MainAxisAlignment.center,
-              // crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                IconButton(
-                  icon: Icon(Icons.home), 
-                  onPressed: () {
-                    Navigator.of(context).pushNamed(
-                      AppRoutes.HOME,
-                    );},
-                  iconSize: 40,
-                ),
-                // SizedBox(width: 28),
-                // IconButton(icon: Icon(Icons.account_circle), onPressed: () {}),
-              ],
+            IconButton(
+              icon: const Icon(Icons.home),
+              color: Colors.blue,
+              onPressed: () {
+                Navigator.of(context).pushNamed(
+                  AppRoutes.HOME,
+                );
+              },
+              iconSize: 40,
             ),
-            Row(
-              children: [
-                // IconButton(icon: Icon(Icons.notifications), onPressed: () {}),
-                // SizedBox(width: 28),
-                IconButton(
-                  icon: Icon(Icons.info),
-                  onPressed: () {
-                    Navigator.of(context).pushNamed(
-                      AppRoutes.information,
-                    );
-                  },
-                  iconSize: 40,
-                ),
-              ],
+            IconButton(
+              icon: const Icon(Icons.info),
+              color: Colors.blue,
+              onPressed: () {
+                Navigator.of(context).pushNamed(
+                  AppRoutes.information,
+                );
+              },
+              iconSize: 40,
             ),
           ],
         ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       appBar: AppBar(
-        backgroundColor: Color.fromARGB(255, 150, 211, 252),
-        title: Image.asset(
-          'assets/images/DINAXY_2.png',
-          height: 25,
+        backgroundColor: const Color.fromARGB(255, 150, 211, 252),
+        title: const Text(
+          'SELF RECORD',
+          style: TextStyle(
+              fontSize: 38, color: Colors.blue, fontWeight: FontWeight.w900),
         ),
-        actions: [
-          // IconButton(
-          //   onPressed: () {}, 
-          //   icon: Icon(Icons.menu),
-          // ),
-        ],
       ),
       body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Padding(
-            padding: const EdgeInsets.all(16),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 28.0, vertical: 25.0),
             child: Text(
-              'Histórico de Saúde',
+              'Meu Histórico de Saúde',
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
               ),
             ),
           ),
-          Expanded(      
-              child: users.count == 0
-              ? Center(
-                  child: Text(
-                    'Aperte o botão + para adicionar seu primeiro item ao histórico!',
-                    style: TextStyle(
-                      fontSize: 18,
-                      color: Colors.grey,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                )
-              : ListView.builder(
-                itemCount: users.count,
-                itemBuilder: (ctx, i) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.grey.withValues(),
-                          spreadRadius: 2,
-                          blurRadius: 5,
-                          offset: Offset(0, 3),
+          Expanded(
+            child: users.count == 0
+                ? const Center(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 28.0),
+                      child: Text(
+                        'Aperte o botão + para adicionar seu primeiro item ao histórico!',
+                        style: TextStyle(
+                          fontSize: 18,
+                          color: Colors.grey,
                         ),
-                      ],
+                        textAlign: TextAlign.center,
+                      ),
                     ),
-                    child: UserTile(users.byIndex(i)),
+                  )
+                : ListView.builder(
+                    itemCount: users.count,
+                    itemBuilder: (ctx, i) => FadeTransition(
+                      opacity: _animation,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 8, horizontal: 16),
+                        child: Card(
+                          elevation: 5,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(15),
+                          ),
+                          child: UserTile(users.byIndex(i)),
+                        ),
+                      ),
+                    ),
                   ),
-              ),
-            ),
           ),
         ],
       ),
     );
   }
-
 }
