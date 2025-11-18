@@ -11,40 +11,52 @@ class UserTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final avatar = const CircleAvatar(child: Icon(Icons.image));
-    return ListTile(
-      leading: avatar,
-      title: Text(user!.dataDoProcedimento),
-      subtitle: Text(user!.procedimento),
-      trailing: SizedBox(
-        width: 100,
-        child: Row(
-          children: [
-            IconButton(
-              icon: const Icon(Icons.edit),
-              color: Colors.blueAccent,
-              onPressed: () {
-                Navigator.of(
-                  context,
-                ).pushNamed(AppRoutes.USER_FORM, arguments: user);
-              },
-            ),
-            IconButton(
-              icon: const Icon(Icons.delete),
-              color: Colors.blueAccent,
-              onPressed: () {
-                showDialog(
-                  context: context,
-                  builder:
-                      (ctx) => AlertDialog(
-                        title: Text('Excluir Procedimento'),
-                        content: Text('Tem certeza?'),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          // Adicione uma ação ao tocar no tile, se desejar
+        },
+        hoverColor: Colors.teal.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(15.0),
+        child: ListTile(
+          leading: const Icon(Icons.receipt_long, color: Colors.teal, size: 40),
+          title: Text(
+            user!.procedimento,
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+          subtitle: Text(user!.dataDoProcedimento),
+          trailing: SizedBox(
+            width: 150,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.edit, color: Colors.orange),
+                  onPressed: () {
+                    Navigator.of(context).pushNamed(
+                      AppRoutes.USER_FORM,
+                      arguments: user,
+                    );
+                  },
+                  tooltip: 'Editar',
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete, color: Colors.red),
+                  onPressed: () {
+                    showDialog(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: const Text('Excluir Procedimento'),
+                        content: const Text(
+                            'Tem certeza de que deseja excluir este registro?'),
                         actions: <Widget>[
                           TextButton(
                             onPressed: () {
                               Navigator.of(context).pop();
                             },
-                            child: Text('Não'),
+                            child:
+                                const Text('Não', style: TextStyle(color: Colors.teal)),
                           ),
                           TextButton(
                             onPressed: () {
@@ -54,14 +66,19 @@ class UserTile extends StatelessWidget {
                               ).remove(user!);
                               Navigator.of(context).pop();
                             },
-                            child: Text('Sim'),
+                            child: const Text('Sim',
+                                style: TextStyle(color: Colors.red)),
                           ),
                         ],
                       ),
-                );
-              },
+                    );
+                  },
+                  tooltip: 'Excluir',
+                ),
+                const Icon(Icons.drag_handle, color: Colors.grey),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
